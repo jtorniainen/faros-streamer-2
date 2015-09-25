@@ -16,12 +16,12 @@ import argparse
 import time
 from .libfaros import *
 from .utilities import *
-  
+
 def faros_cli():
     parser = argparse.ArgumentParser(description = "Faros Streamer")
     parser.add_argument("--scan", action = "store_true", help="Scan for available Bluetooth devices.")
     parser.add_argument("--blink", action = "store_true", dest = "blink_device", help="Blink the lights of a device.")
-    
+
     parser.add_argument("--device-list", dest = "device_list", help="File containing the names and bluetooth addresses of devices. Create using --scan and pipe the output to a file.")
     parser.add_argument("--mac", dest = "device_mac", help="Bluetooth MAC address.")
     parser.add_argument("--name", dest = "device_name", help="Bluetooth device name.")
@@ -34,7 +34,7 @@ def faros_cli():
     parser.add_argument("--ecg-fs", dest = "ecg_fs", help="ECG sampling rate in Hz (0, 100, 125, 250, 500, 1000).", default = 250)
     parser.add_argument("--ecg-res", dest = "ecg_res", help="ECG resolution in uV / count (0.25 uV or 1 uV).", default = 1)
     parser.add_argument("--ecg-hp", dest = "ecg_hp", help="ECG highpass filter in Hz (1 Hz or 10 Hz).", default = 1)
-    
+
     parser.add_argument("--acc-fs", dest = "acc_fs", help="Acc sampling rate in Hz (0, 20, 25, 40, 50, 100)", default = 20)
     parser.add_argument("--acc-res", dest = "acc_res", help="Acc resolution in mg / count (0.25 uV or 1 uV)", default = 1)
 
@@ -47,7 +47,7 @@ def faros_cli():
     parser.add_argument("--stream-prefix", dest = "stream_prefix",  help="LSL stream name prefix. Default is empty string.", default = "")
 
     # --------------------------------------------------
-    
+
     args = parser.parse_args()
 
     # Scan for bluetooth devices
@@ -81,13 +81,13 @@ def faros_cli():
             sys.exit(1)
     else:
         device_name = None
-            
+
 
     if (device_mac is None) and (device_name is None):
         print("No name or MAC address given. Cannot continue.\n")
         print("Type faros_streamer --help to display usage information.\n")
         sys.exit(1)
-    
+
     # Try to connect to the given device
     try:
         faros_socket = connect(device_mac)
@@ -97,6 +97,7 @@ def faros_cli():
     except:
         faros_socket = None
         print("Unable to connect to device.")
+        print(sys.exc_info()[0])
         sys.exit(1)
 
     # Set different parameters of the Faros device
@@ -112,7 +113,7 @@ def faros_cli():
 
         configure_device(faros_socket, settings)
 
-    # Show device settings    
+    # Show device settings
     if args.show_settings:
         properties = get_properties(faros_socket)
         print_properties(properties)
@@ -127,13 +128,13 @@ def faros_cli():
         properties  = get_properties(faros_socket)
         settings    = unpack_settings(properties['settings'])
         packet_size = get_packet_size(settings)
-        
+
         # Get packet formats and create LSL outlets
         p_header = get_packet_header()
 
         if args.stream_prefix != '':
             args.stream_prefix += '_'
-        
+
         # (1) ----- ECG -----
         if packet_size['n_ecg_s'] > 0:
             p_ecg            = get_data_packet((packet_size['n_ecg_c'] * packet_size['n_ecg_s']), 'ecg')
@@ -142,7 +143,7 @@ def faros_cli():
         else:
             p_ecg            = None
             faros_outlet_ecg = None
-            
+
         # (2) ----- Acc -----
         if packet_size['n_acc_s'] > 0:
             p_acc            = get_data_packet(3 * packet_size['n_acc_s'], 'acc')
@@ -156,7 +157,7 @@ def faros_cli():
         p_marker            = get_data_packet(1, 'marker')
         sn                  = args.stream_prefix + 'faros_marker'
         faros_outlet_marker = create_lsl_outlet(sn, "Marker", 1, 0.0, channel_format = 'int16')
- 
+
         # (4) ----- RR -----
         if packet_size['n_rr_s'] > 0:
             p_rr              = get_data_packet(1, 'rr')
@@ -165,7 +166,7 @@ def faros_cli():
         else:
             p_rr              = None
             faros_outlet_rr   = None
-            
+
         # (5) ----- Temperature -----
         if packet_size['n_temp_s'] > 0:
             p_temp            = get_data_packet(1, 'temp')
@@ -207,6 +208,6 @@ def faros_cli():
                 command = "wbaoms"
                 send_command(faros_socket, command, 0)
                 sys.exit(0)
-                
+
 if __name__ == '__main__':
     faros_streamer()
